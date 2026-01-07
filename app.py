@@ -481,7 +481,23 @@ st.markdown("""
         background-color: #1b263b !important;
         color: white !important;
     }     
-                                                  
+    /* --- ESTILO BOTÓN DE ACTUALIZAR (IZQUIERDA) --- */
+    /* Apunta al botón en la primera columna */
+    div[data-testid="column"]:nth-of-type(1) button {
+        background-color: #1b263b !important;
+        border: 1px solid #415a77 !important;
+        color: white !important;
+        font-size: 1.2rem !important;
+        padding: 0.5rem 1rem !important;
+        transition: all 0.3s ease;
+    }
+    
+    /* Efecto Hover */
+    div[data-testid="column"]:nth-of-type(1) button:hover {
+        border-color: #00b4d8 !important;
+        color: #00b4d8 !important;
+        box-shadow: 0 0 10px rgba(0, 180, 216, 0.5);
+    }                                                  
 </style>
 """, unsafe_allow_html=True)
 
@@ -555,29 +571,25 @@ def load_data():
             return pd.DataFrame(), pd.DataFrame()
 
 df_sheet1, df_equipos, df_jefe_op  = load_data()
-
 # --- HEADER ---
-# Usamos 3 columnas: [Espacio Izq] [Título Centro] [Logo Der]
-# vertical_alignment="center" alinea todo al medio verticalmente (Streamlit 1.31+)
-col_spacer, col_title, col_logo = st.columns([1.5, 7, 1.5], vertical_alignment="center")
+# Usamos 3 columnas: [Botón Refresh] [Título Centro] [Logo Der]
+# Ajustamos anchos: 1 (Botón), 8 (Título), 1 (Logo) para mantener balance
+col_refresh, col_title, col_logo = st.columns([1, 8, 1], vertical_alignment="center")
 
-# 1. Columna Izquierda (Vacía, solo para equilibrar el logo y centrar el título)
-with col_spacer:
-    st.write("") 
-
-# 2. Columna Central (Título)
-with col_title:
-    # Lógica de reinicio
-    if "reset" in st.query_params:
+# 1. Columna Izquierda (Botón de Actualizar)
+with col_refresh:
+    # Este botón borra la caché y recarga la app SIN perder el login
+    if st.button("🔄", help="Actualizar datos manualmente"):
         st.cache_data.clear()
-        st.query_params.clear()
         st.rerun()
 
+# 2. Columna Central (Título Estático)
+with col_title:
     st.markdown("""
         <div class="title-container">
-            <a href="?reset=true" target="_self" class="title-text">
+            <span class="title-text">
                 Tablero de Planificación Operacional
-            </a>
+            </span>
         </div>
     """, unsafe_allow_html=True)
 
@@ -585,7 +597,6 @@ with col_title:
 with col_logo:
     try:
         img_b64 = get_img_as_base64("logo-svti.png")
-        # El logo se alinea a la derecha dentro de su columna
         st.markdown(f"""
             <div style="display: flex; justify-content: flex-end; align-items: center;">
                 <img src="data:image/png;base64,{img_b64}" 
@@ -1076,4 +1087,5 @@ with row2_col2:
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
     st.markdown('</div>', unsafe_allow_html=True)
+
 
