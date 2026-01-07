@@ -1,0 +1,47 @@
+/* =======================
+   CONFIGURACIÓN GENERAL
+   ======================== */
+:root {
+    --bg-dark: #0d1b2a;
+    --bg-card: #1b263b;
+    --primary-text: #e0e1dd;
+    --secondary-text: #a9b4c2;
+    --accent-teal: #00b4d8;
+}
+
+/* Forzar fondo oscuro en toda la app */
+.stApp {
+    background-color: var(--bg-dark);
+}
+
+/* Eliminar espacios entre bloques de Streamlit */
+[data-testid="stVerticalBlock"] > div {
+    gap: 0rem !important;
+}
+
+/* Ajuste de tarjetas sin títulos */
+.card {
+    background-color: var(--bg-card);
+    padding: 5px 20px 20px 20px !important;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Forzar que los gráficos suban al máximo */
+.stAltairChart {
+    margin-top: -25px !important;
+}
+
+/* Contenedor de filtros */
+[data-testid="stHorizontalBlock"] {
+    background-color: var(--bg-card);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+/* Estilo de textos */
+h1, label, p {
+    color: var(--primary-text) !important;
+}
