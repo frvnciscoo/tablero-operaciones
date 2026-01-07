@@ -12,7 +12,10 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from io import BytesIO
 # --- [INICIO] BLOQUE DE LOGIN Y SEGURIDAD ---
-
+def get_img_as_base64(file_path):
+    with open(file_path, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
 def check_password():
     """Retorna True si el usuario está logueado, de lo contrario muestra formulario."""
     
@@ -98,10 +101,7 @@ def check_password():
 # Ejecutar chequeo de contraseña antes de NADA más
 if not check_password():
     st.stop() # Detiene la ejecución aquí si no está logueado
-def get_img_as_base64(file_path):
-    with open(file_path, "rb") as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
+
 
 def generar_pdf_resumen(df, fecha, turno):
     # 1. Preparar Datos
@@ -1076,3 +1076,4 @@ with row2_col2:
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
     st.markdown('</div>', unsafe_allow_html=True)
+
