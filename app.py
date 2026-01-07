@@ -11,7 +11,93 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from io import BytesIO
+# --- [INICIO] BLOQUE DE LOGIN Y SEGURIDAD ---
 
+def check_password():
+    """Retorna True si el usuario está logueado, de lo contrario muestra formulario."""
+    
+    # 1. Verificar si ya está validado en la sesión
+    if st.session_state.get("password_correct", False):
+        return True
+
+    # 2. Configurar estilos específicos para la pantalla de Login (Centrado y estético)
+    st.markdown("""
+    <style>
+        .stApp { background-color: #0d1b2a; }
+        
+        /* Contenedor del Login */
+        .login-container {
+            background-color: #1b263b;
+            padding: 40px;
+            border-radius: 10px;
+            border: 2px solid #415a77;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
+            max-width: 400px;
+            margin: 100px auto; /* Centrado vertical y horizontal */
+        }
+        
+        /* Input Fields */
+        .stTextInput input {
+            background-color: #0d1b2a !important;
+            color: white !important;
+            border: 1px solid #415a77 !important;
+        }
+        
+        /* Botón de Entrar */
+        div.stButton > button {
+            background-color: #00b4d8;
+            color: white;
+            width: 100%;
+            border: none;
+            padding: 10px;
+            font-weight: bold;
+        }
+        div.stButton > button:hover {
+            background-color: #0096c7;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+    # 3. Mostrar el Formulario de Login
+    # Usamos columnas para centrar visualmente el bloque
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        # Cargamos el logo para el login
+        try:
+            # Reutilizamos tu función get_img_as_base64
+            img_b64 = get_img_as_base64("logo-svti.png")
+            logo_html = f'<img src="data:image/png;base64,{img_b64}" style="width: 150px; margin-bottom: 20px;">'
+        except:
+            logo_html = "<h2 style='color:white'>SVTI</h2>"
+
+        st.markdown(f"""
+            <div class='login-container'>
+                {logo_html}
+                <h3 style='color: white; margin-bottom: 20px;'>Acceso Operacional</h3>
+            </div>
+        """, unsafe_allow_html=True)
+
+        # Formulario de Streamlit
+        with st.form("login_form"):
+            username = st.text_input("Usuario")
+            password = st.text_input("Contraseña", type="password")
+            submitted = st.form_submit_button("Ingresar")
+
+            if submitted:
+                # Verificar credenciales contra secrets.toml
+                if username in st.secrets["passwords"] and st.secrets["passwords"][username] == password:
+                    st.session_state["password_correct"] = True
+                    st.rerun() # Recargamos para quitar el login y mostrar la app
+                else:
+                    st.error("😕 Usuario o contraseña incorrectos")
+
+    return False
+
+# Ejecutar chequeo de contraseña antes de NADA más
+if not check_password():
+    st.stop() # Detiene la ejecución aquí si no está logueado
 def get_img_as_base64(file_path):
     with open(file_path, "rb") as f:
         data = f.read()
@@ -988,4 +1074,5 @@ with row2_col2:
     fig_map = plot_mapa(df_filtered_s1)
     fig_map.update_layout(height=450)
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
+
     st.markdown('</div>', unsafe_allow_html=True)
