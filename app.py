@@ -534,7 +534,12 @@ st.markdown("""
         max-height: 90vh !important;
     }
 
-
+    /* Forzamos la altura SOLO cuando la tabla es 'hija' de tu contenedor personalizado */
+    .custom-container [data-testid="stDataFrame"] > div {
+        height: 250px !important;; 
+        max-height: 250px !important;;
+        overflow: auto !important;;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -1079,7 +1084,7 @@ with row1_col2:
         
         st.dataframe(
             aplicar_estilo(df_faenas_clean[cols_validas]),
-            height=250, 
+
             use_container_width=True, 
             hide_index=True
         )
@@ -1095,7 +1100,7 @@ with row1_col2:
         
         st.dataframe(
             aplicar_estilo(df_show[cols_validas]), 
-            height=250, 
+
             use_container_width=True, 
             hide_index=True,
             column_config={
@@ -1129,6 +1134,7 @@ with row2_col2:
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
     st.markdown('</div>', unsafe_allow_html=True)
+
 
 
 
