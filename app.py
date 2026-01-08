@@ -1084,7 +1084,7 @@ with row1_col2:
         
         st.dataframe(
             aplicar_estilo(df_faenas_clean[cols_validas]),
-            height = 250
+            height = 250,
             use_container_width=True, 
             hide_index=True
         )
@@ -1100,7 +1100,7 @@ with row1_col2:
         
         st.dataframe(
             aplicar_estilo(df_show[cols_validas]), 
-            height = 250
+            height = 250,
             use_container_width=True, 
             hide_index=True,
             column_config={
@@ -1134,6 +1134,7 @@ with row2_col2:
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
     st.markdown('</div>', unsafe_allow_html=True)
+
 
 
 
