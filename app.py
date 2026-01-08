@@ -497,8 +497,20 @@ st.markdown("""
         border-color: #00b4d8 !important;
         color: #00b4d8 !important;
         box-shadow: 0 0 10px rgba(0, 180, 216, 0.5);
-    }                                                  
+    }
+    /* Esto fuerza al contenedor interno de la tabla a no limitarse a pixeles fijos */
+    div[data-testid="stDataFrame"] > div {
+        height: auto !important;
+        max-height: 85vh !important; /* Usa el 85% de la altura de pantalla disponible */
+    }
+    
+    /* Opcional: Si quieres que la barra de scroll sea más estilizada */
+    div[data-testid="stDataFrame"] ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }    
 </style>
+
 """, unsafe_allow_html=True)
 
 # --- CARGA DE DATOS ---
@@ -612,7 +624,7 @@ with st.container():
     
     # Filtros base
     fechas_disponibles = sorted(df_sheet1['FechaHora'].dropna().unique())
-    turnos_disponibles = sorted(df_sheet1['Turno'].dropna().unique())
+    turnos_disponibles = ['Todos'] + sorted(df_sheet1['Turno'].dropna().unique())
     
     with c1:
         fecha_sel = st.date_input("Fecha", value=fechas_disponibles[-1] if len(fechas_disponibles) > 0 else datetime.now())
@@ -620,7 +632,11 @@ with st.container():
         turno_sel = st.selectbox("Turno", options=turnos_disponibles)
 
     # Filtrado inicial para llenar selects de Area y Faena (excluyendo Equipos y Grúas)
-    mask_base = (df_sheet1['FechaHora'] == fecha_sel) & (df_sheet1['Turno'] == turno_sel)
+    if turno_sel == 'Todos':
+            mask_base = (df_sheet1['FechaHora'] == fecha_sel)
+    else:
+            mask_base = (df_sheet1['FechaHora'] == fecha_sel) & (df_sheet1['Turno'] == turno_sel)
+            
     df_filtered_s1 = df_sheet1[mask_base]
     
     # Excluir "Equipos y Grúas" de los filtros
@@ -640,7 +656,11 @@ if faena_sel != 'Todas':
 
 # Filtrado de Equipos (Para Gráfico 1 y Tabla modo Equipos)
 # Nota: "Equipos" se vincula por fecha y turno primariamente.
-mask_equipos = (df_equipos['FechaHora'] == fecha_sel) & (df_equipos['Turno'] == turno_sel)
+if turno_sel == 'Todos':
+    mask_equipos = (df_equipos['FechaHora'] == fecha_sel)
+else:
+    mask_equipos = (df_equipos['FechaHora'] == fecha_sel) & (df_equipos['Turno'] == turno_sel)
+    
 df_filtered_equipos = df_equipos[mask_equipos]
 
 # --- ESTRUCTURA DEL DASHBOARD ---
@@ -1002,7 +1022,10 @@ with row1_col2:
 
     # 3. BOTÓN PDF (Derecha)
     with col_btn:
-        mask_pdf = (df_sheet1['FechaHora'] == fecha_sel) & (df_sheet1['Turno'] == turno_sel)
+        if turno_sel == 'Todos':
+            mask_pdf = (df_sheet1['FechaHora'] == fecha_sel)
+        else:
+            mask_pdf = (df_sheet1['FechaHora'] == fecha_sel) & (df_sheet1['Turno'] == turno_sel)
         df_to_pdf = df_sheet1[mask_pdf].copy()
         df_to_pdf = df_to_pdf[df_to_pdf['Faena'] != "Equipos y Grúas"]
         
@@ -1037,7 +1060,7 @@ with row1_col2:
         
         st.dataframe(
             aplicar_estilo(df_faenas_clean[cols_validas]), 
-            height=250, 
+            #height=250, 
             use_container_width=True, 
             hide_index=True
         )
@@ -1053,7 +1076,7 @@ with row1_col2:
         
         st.dataframe(
             aplicar_estilo(df_show[cols_validas]), 
-            height=250, 
+            #height=250, 
             use_container_width=True, 
             hide_index=True,
             column_config={
@@ -1087,5 +1110,6 @@ with row2_col2:
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
     st.markdown('</div>', unsafe_allow_html=True)
+
 
 
