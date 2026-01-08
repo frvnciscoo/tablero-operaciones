@@ -526,7 +526,14 @@ st.markdown("""
         border-color: #00b4d8 !important;
         color: #00b4d8 !important;
         box-shadow: 0 0 10px rgba(0, 180, 216, 0.5);
-    }                                                  
+    }
+
+    /* Cuando el dataframe está en modo fullscreen */
+    div[data-testid="stDataFrame"]:has(button[title="Exit fullscreen"]) {
+        height: 90vh !important;
+    }
+
+    
 </style>
 """, unsafe_allow_html=True)
 
@@ -1121,6 +1128,7 @@ with row2_col2:
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
     st.markdown('</div>', unsafe_allow_html=True)
+
 
 
 
