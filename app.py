@@ -103,93 +103,11 @@ if not check_password():
     st.stop() # Detiene la ejecución aquí si no está logueado
 
 
-def generar_pdf_resumen(df, fecha, turno):
-    # 1. Preparar Datos
-    cols = ['Area', 'Faena', 'Metrica', 'Ubicacion', 'Observaciones']
-    cols_existentes = [c for c in cols if c in df.columns]
-    
-    if not cols_existentes:
-        return None
+from reportlab.platypus import PageBreak  # <--- IMPORTANTE: Agrega esto a tus imports
 
-    df_pdf = df[cols_existentes].copy()
-    if 'Metrica' in df_pdf.columns:
-        df_pdf['Metrica'] = df_pdf['Metrica'].apply(
-            lambda x: "" if pd.isna(x) else f"{int(x)}"
-        )
-        
-    df_pdf = df_pdf.fillna("").astype(str)
-    # Ordenar es vital para el agrupamiento visual
-    df_pdf = df_pdf.sort_values(by=['Area', 'Faena', 'Ubicacion'])
-    
-    # 2. Configurar Estilos de Texto (Paragraph)
-    styles = getSampleStyleSheet()
-    # Creamos un estilo personalizado para las celdas
-    style_cell = ParagraphStyle(
-        'CellText', 
-        parent=styles['Normal'], 
-        fontSize=8, 
-        leading=10, # Espacio entre líneas
-        alignment=0 # 0=Left, 1=Center, 2=Right
-    )
-    
-    # Estilo para el encabezado (texto en negrita y centrado)
-    style_header = ParagraphStyle(
-        'HeaderText',
-        parent=styles['Normal'],
-        fontSize=10,
-        leading=12,
-        textColor=colors.white,
-        fontName='Helvetica-Bold',
-        alignment=1 # Center
-    )
-
-    # 3. Procesar Filas (Lógica de fusión + Conversión a Paragraph)
-    lista_filas = df_pdf.values.tolist()
-    data_procesada = []
-    
-    prev_area = None
-    prev_faena = None
-    
-    for row in lista_filas:
-        # Convertimos la fila a lista modificable
-        fila_texto = list(row) # Aquí tenemos strings puros
-        
-        area_actual = fila_texto[0]
-        faena_actual = fila_texto[1] if len(fila_texto) > 1 else ""
-        
-        # --- LÓGICA DE FUSIÓN VISUAL (Borrar texto repetido) ---
-        
-        # Si el área es igual a la anterior, la dejamos vacía
-        if area_actual == prev_area:
-            fila_texto[0] = "" 
-        else:
-            prev_area = area_actual
-            prev_faena = None # Reset de faena si cambia el área
-
-        # Si el área está vacía (es repetida) y la faena es igual, la dejamos vacía
-        if fila_texto[0] == "" and faena_actual == prev_faena:
-            fila_texto[1] = ""
-        else:
-            prev_faena = faena_actual
-
-        # --- CONVERSIÓN A PARAGRAPH (EL TRUCO PARA EL SALTO DE LÍNEA) ---
-        # Recorremos cada celda de esta fila y la envolvemos en un Paragraph.
-        # Esto obliga a ReportLab a respetar el ancho de columna y bajar el texto.
-        fila_visual = []
-        for celda in fila_texto:
-            # Paragraph(texto, estilo)
-            fila_visual.append(Paragraph(celda, style_cell))
-            
-        data_procesada.append(fila_visual)
-
-    # 4. Preparar Encabezados (También como Paragraph para centrado perfecto)
-    headers_visual = [Paragraph(col, style_header) for col in cols_existentes]
-    data_final = [headers_visual] + data_procesada
-
-    # 5. Configurar PDF
+def generar_pdf_resumen_dia_completo(df_dia_completo, fecha):
+    # 1. Configurar PDF y Estilos Generales
     buffer = BytesIO()
-    # Landscape Letter: ~792 points de ancho
-    # Margenes: 30 izq, 30 der -> Espacio útil: ~732 points
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=landscape(letter),
@@ -197,47 +115,128 @@ def generar_pdf_resumen(df, fecha, turno):
     )
     
     elements = []
-    elements.append(Paragraph(f"<b>Resumen Operacional - {fecha} - Turno {turno}</b>", styles['Heading2']))
-    elements.append(Spacer(1, 12))
+    styles = getSampleStyleSheet()
+    
+    # Estilos personalizados (se definen una sola vez fuera del bucle)
+    style_cell = ParagraphStyle(
+        'CellText', 
+        parent=styles['Normal'], 
+        fontSize=8, 
+        leading=10, 
+        alignment=0 
+    )
+    
+    style_header = ParagraphStyle(
+        'HeaderText',
+        parent=styles['Normal'],
+        fontSize=10,
+        leading=12,
+        textColor=colors.white,
+        fontName='Helvetica-Bold',
+        alignment=1 
+    )
 
-    # Anchos de columna (Suma total debe ser aprox 730)
-    # Area: 110, Faena: 140, Ubicacion: 130, Obs: 350 (Le damos más espacio a Obs)
+    # Definimos columnas y anchos fijos
+    cols = ['Area', 'Faena', 'Metrica', 'Ubicacion', 'Observaciones']
     col_widths = [110, 140 ,  60, 130, 320] 
 
-    t = Table(data_final, colWidths=col_widths, repeatRows=1)
+    # Variable para controlar si escribimos algo en el PDF
+    datos_agregados = False
 
-    # 6. Estilos de la Tabla (Grid y Colores)
-    estilo_tabla = [
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#0d1b2a")), # Fondo Header
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'), # Alinear todo arriba para leer bien párrafos
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey), # Líneas grises
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-    ]
-    
-    # Líneas divisorias gruesas de color azul cuando cambia el Área
-    # Como ahora fila_visual[0] es un Objeto Paragraph, no podemos comparar con string ""
-    # Usamos la lógica de indices basada en data_procesada original (strings) si fuera necesario,
-    # pero aquí podemos detectar si el texto del Paragraph está vacío. 
-    # Sin embargo, la forma más fácil es replicar la lógica visual basada en el índice.
-    
-    # Recorremos las filas de datos (saltando el header que es índice 0)
-    for i, fila in enumerate(data_procesada, start=1):
-        # Accedemos al objeto Paragraph de la primera columna (Area)
-        # El texto está en el atributo 'text' (aunque a veces contiene etiquetas HTML)
-        p_area = fila[0] 
+    # 2. Iterar por los 3 Turnos
+    for turno_actual in [1, 2, 3]:
         
-        # Si el párrafo tiene texto (no es cadena vacía), es un grupo nuevo
-        if p_area.getPlainText().strip() != "":
-             estilo_tabla.append(('LINEABOVE', (0, i), (-1, i), 1.5, colors.HexColor("#00b4d8")))
+        # Filtramos el DF global del día por el turno actual
+        df_turno = df_dia_completo[df_dia_completo['Turno'] == turno_actual].copy()
+        
+        # Si no hay datos para este turno, saltamos al siguiente
+        if df_turno.empty:
+            continue
+            
+        datos_agregados = True
+        
+        # --- PROCESAMIENTO DE DATOS DEL TURNO (Tu lógica original) ---
+        cols_existentes = [c for c in cols if c in df_turno.columns]
+        
+        df_pdf = df_turno[cols_existentes].copy()
+        if 'Metrica' in df_pdf.columns:
+            df_pdf['Metrica'] = df_pdf['Metrica'].apply(
+                lambda x: "" if pd.isna(x) else f"{int(x)}"
+            )
+            
+        df_pdf = df_pdf.fillna("").astype(str)
+        df_pdf = df_pdf.sort_values(by=['Area', 'Faena', 'Ubicacion'])
+        
+        lista_filas = df_pdf.values.tolist()
+        data_procesada = []
+        
+        prev_area = None
+        prev_faena = None
+        
+        for row in lista_filas:
+            fila_texto = list(row)
+            
+            area_actual = fila_texto[0]
+            faena_actual = fila_texto[1] if len(fila_texto) > 1 else ""
+            
+            # Lógica de fusión visual
+            if area_actual == prev_area:
+                fila_texto[0] = "" 
+            else:
+                prev_area = area_actual
+                prev_faena = None 
 
-    t.setStyle(TableStyle(estilo_tabla))
-    elements.append(t)
-    
+            if fila_texto[0] == "" and faena_actual == prev_faena:
+                fila_texto[1] = ""
+            else:
+                prev_faena = faena_actual
+
+            # Conversión a Paragraph
+            fila_visual = []
+            for celda in fila_texto:
+                fila_visual.append(Paragraph(celda, style_cell))
+            data_procesada.append(fila_visual)
+
+        # Encabezados
+        headers_visual = [Paragraph(col, style_header) for col in cols_existentes]
+        data_final = [headers_visual] + data_procesada
+
+        # --- CREACIÓN DE LA TABLA DEL TURNO ---
+        
+        # Título del Turno
+        elements.append(Paragraph(f"<b>Resumen Operacional - {fecha} - Turno {turno_actual}</b>", styles['Heading2']))
+        elements.append(Spacer(1, 12))
+
+        t = Table(data_final, colWidths=col_widths, repeatRows=1)
+
+        estilo_tabla = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#0d1b2a")),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ]
+        
+        # Líneas divisorias azules (Lógica basada en data_procesada)
+        for i, fila in enumerate(data_procesada, start=1):
+            p_area = fila[0] 
+            if p_area.getPlainText().strip() != "":
+                 estilo_tabla.append(('LINEABOVE', (0, i), (-1, i), 1.5, colors.HexColor("#00b4d8")))
+
+        t.setStyle(TableStyle(estilo_tabla))
+        elements.append(t)
+        
+        # Agregar Salto de Página después de cada turno (excepto si es el último renderizado, 
+        # pero ReportLab maneja un PageBreak final vacío bien o podemos dejarlo para separar siempre)
+        elements.append(PageBreak())
+
+    # 3. Construir PDF final
+    if not datos_agregados:
+        return None
+        
     doc.build(elements)
     buffer.seek(0)
     return buffer
-
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
@@ -1002,21 +1001,26 @@ with row1_col2:
 
     # 3. BOTÓN PDF (Derecha)
     with col_btn:
-        mask_pdf = (df_sheet1['FechaHora'] == fecha_sel) & (df_sheet1['Turno'] == turno_sel)
-        df_to_pdf = df_sheet1[mask_pdf].copy()
+        # MODIFICACIÓN: Filtramos solo por FECHA, ignorando el turno seleccionado en el filtro
+        # para que el PDF contenga la info de todo el día.
+        mask_pdf_dia = (df_sheet1['FechaHora'] == fecha_sel)
+        df_to_pdf = df_sheet1[mask_pdf_dia].copy()
+        
+        # Mantenemos la exclusión de Equipos y Grúas
         df_to_pdf = df_to_pdf[df_to_pdf['Faena'] != "Equipos y Grúas"]
         
         if not df_to_pdf.empty:
-            pdf_data = generar_pdf_resumen(df_to_pdf, fecha_sel, turno_sel)
+            # Llamamos a la nueva función
+            pdf_data = generar_pdf_resumen_dia_completo(df_to_pdf, fecha_sel)
+            
             if pdf_data:
                 st.download_button(
-                    label="📥 PDF Resumen",
+                    label="📥 PDF Resumen Diario", # Cambié la etiqueta para reflejar que es todo el día
                     data=pdf_data,
-                    file_name=f"Resumen_{fecha_sel}_{turno_sel}.pdf",
+                    file_name=f"Resumen_Diario_{fecha_sel}.pdf",
                     mime="application/pdf",
                     use_container_width=True
                 )
-
     # Espaciador
     st.markdown('<div style="margin-top: -10px;"></div>', unsafe_allow_html=True)
 
@@ -1087,5 +1091,6 @@ with row2_col2:
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
     st.markdown('</div>', unsafe_allow_html=True)
+
 
 
