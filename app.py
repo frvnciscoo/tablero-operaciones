@@ -106,8 +106,8 @@ if not check_password():
 from reportlab.platypus import PageBreak  # <--- IMPORTANTE: Agrega esto a tus imports
 
 def generar_pdf_resumen_dia_completo(df_dia_completo, fecha):
-    # 1. Configurar PDF y Estilos Generales
     buffer = BytesIO()
+    # Margenes ajustados para aprovechar espacio
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=landscape(letter),
@@ -117,13 +117,13 @@ def generar_pdf_resumen_dia_completo(df_dia_completo, fecha):
     elements = []
     styles = getSampleStyleSheet()
     
-    # Estilos personalizados (se definen una sola vez fuera del bucle)
+    # Estilos de texto
     style_cell = ParagraphStyle(
         'CellText', 
         parent=styles['Normal'], 
         fontSize=8, 
         leading=10, 
-        alignment=0 
+        alignment=0 # Left
     )
     
     style_header = ParagraphStyle(
@@ -133,53 +133,86 @@ def generar_pdf_resumen_dia_completo(df_dia_completo, fecha):
         leading=12,
         textColor=colors.white,
         fontName='Helvetica-Bold',
-        alignment=1 
+        alignment=1 # Center
     )
 
-    # Definimos columnas y anchos fijos
     cols = ['Area', 'Faena', 'Metrica', 'Ubicacion', 'Observaciones']
     col_widths = [110, 140 ,  60, 130, 320] 
 
-    # Variable para controlar si escribimos algo en el PDF
     datos_agregados = False
 
-    # 2. Iterar por los 3 Turnos
     for turno_actual in [1, 2, 3]:
-        
-        # Filtramos el DF global del día por el turno actual
+        # 1. Filtrar y Ordenar
         df_turno = df_dia_completo[df_dia_completo['Turno'] == turno_actual].copy()
         
-        # Si no hay datos para este turno, saltamos al siguiente
         if df_turno.empty:
             continue
             
         datos_agregados = True
         
-        # --- PROCESAMIENTO DE DATOS DEL TURNO (Tu lógica original) ---
         cols_existentes = [c for c in cols if c in df_turno.columns]
-        
         df_pdf = df_turno[cols_existentes].copy()
+        
+        # Limpieza de nulos y conversión a string
         if 'Metrica' in df_pdf.columns:
-            df_pdf['Metrica'] = df_pdf['Metrica'].apply(
-                lambda x: "" if pd.isna(x) else f"{int(x)}"
-            )
-            
+            df_pdf['Metrica'] = df_pdf['Metrica'].apply(lambda x: "" if pd.isna(x) else f"{int(x)}")
         df_pdf = df_pdf.fillna("").astype(str)
+        
+        # EL ORDEN ES CRÍTICO PARA LA FUSIÓN
         df_pdf = df_pdf.sort_values(by=['Area', 'Faena', 'Ubicacion'])
         
-        lista_filas = df_pdf.values.tolist()
-        data_procesada = []
+        # 2. Calcular SPANS (Fusiones) basándonos en los datos crudos
+        # La tabla tendrá fila 0 de headers. Los datos empiezan en fila 1.
+        raw_data = df_pdf.values.tolist()
+        spans = []
         
+        # --- Lógica de Fusión para 'Area' (Columna 0) ---
+        if len(raw_data) > 0:
+            start_row = 1 # Índice en la tabla visual (1-based porque 0 es header)
+            last_val = raw_data[0][0]
+            
+            for i, row in enumerate(raw_data[1:], start=2):
+                curr_val = row[0]
+                if curr_val != last_val:
+                    # Si hubo más de 1 fila igual, guardamos el span
+                    if i - 1 > start_row:
+                        spans.append(('SPAN', (0, start_row), (0, i-1)))
+                    last_val = curr_val
+                    start_row = i
+            # Cerrar el último grupo
+            if (len(raw_data) + 1) > start_row:
+                 spans.append(('SPAN', (0, start_row), (0, len(raw_data))))
+
+        # --- Lógica de Fusión para 'Faena' (Columna 1) ---
+        # La Faena debe resetearse si cambia el Area, pero como ordenamos por Area->Faena,
+        # basta con chequear si cambia (Area, Faena) para ser seguros.
+        if len(raw_data) > 0 and len(cols_existentes) > 1:
+            start_row = 1
+            last_val = (raw_data[0][0], raw_data[0][1]) # Tupla (Area, Faena)
+            
+            for i, row in enumerate(raw_data[1:], start=2):
+                curr_val = (row[0], row[1])
+                if curr_val != last_val:
+                    if i - 1 > start_row:
+                        spans.append(('SPAN', (1, start_row), (1, i-1)))
+                    last_val = curr_val
+                    start_row = i
+            if (len(raw_data) + 1) > start_row:
+                 spans.append(('SPAN', (1, start_row), (1, len(raw_data))))
+
+        # 3. Preparar Visual (Blanqueo de textos repetidos)
+        # Aunque usemos SPAN, ReportLab usa el texto de la celda superior izquierda del span.
+        # Mantenemos tu lógica de "limpiar" el texto repetido para que se vea limpio.
+        data_procesada = []
         prev_area = None
         prev_faena = None
         
-        for row in lista_filas:
+        for row in raw_data:
             fila_texto = list(row)
-            
             area_actual = fila_texto[0]
             faena_actual = fila_texto[1] if len(fila_texto) > 1 else ""
             
-            # Lógica de fusión visual
+            # Blanqueamos para visualización (aunque el SPAN lo cubriría, esto asegura limpieza)
             if area_actual == prev_area:
                 fila_texto[0] = "" 
             else:
@@ -191,53 +224,50 @@ def generar_pdf_resumen_dia_completo(df_dia_completo, fecha):
             else:
                 prev_faena = faena_actual
 
-            # Conversión a Paragraph
-            fila_visual = []
-            for celda in fila_texto:
-                fila_visual.append(Paragraph(celda, style_cell))
+            # Convertir a Paragraph
+            fila_visual = [Paragraph(celda, style_cell) for celda in fila_texto]
             data_procesada.append(fila_visual)
 
-        # Encabezados
         headers_visual = [Paragraph(col, style_header) for col in cols_existentes]
         data_final = [headers_visual] + data_procesada
 
-        # --- CREACIÓN DE LA TABLA DEL TURNO ---
-        
-        # Título del Turno
+        # 4. Construir Tabla
         elements.append(Paragraph(f"<b>Resumen Operacional - {fecha} - Turno {turno_actual}</b>", styles['Heading2']))
         elements.append(Spacer(1, 12))
 
         t = Table(data_final, colWidths=col_widths, repeatRows=1)
 
+        # Estilos base
         estilo_tabla = [
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor("#0d1b2a")),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
             ('TOPPADDING', (0, 0), (-1, -1), 6),
+            # Alineación general arriba (para observaciones largas)
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'), 
+            # Alineación CENTRADA verticalmente para las columnas fusionadas (Area y Faena)
+            ('VALIGN', (0, 0), (1, -1), 'MIDDLE'),
         ]
         
-        # Líneas divisorias azules (Lógica basada en data_procesada)
+        # Agregamos los SPANS calculados
+        estilo_tabla.extend(spans)
+
+        # Líneas divisorias azules (por grupo de área)
+        # Usamos la lógica visual: si la celda tiene texto, es inicio de grupo
         for i, fila in enumerate(data_procesada, start=1):
-            p_area = fila[0] 
-            if p_area.getPlainText().strip() != "":
+            if fila[0].getPlainText().strip() != "":
                  estilo_tabla.append(('LINEABOVE', (0, i), (-1, i), 1.5, colors.HexColor("#00b4d8")))
 
         t.setStyle(TableStyle(estilo_tabla))
         elements.append(t)
-        
-        # Agregar Salto de Página después de cada turno (excepto si es el último renderizado, 
-        # pero ReportLab maneja un PageBreak final vacío bien o podemos dejarlo para separar siempre)
         elements.append(PageBreak())
 
-    # 3. Construir PDF final
     if not datos_agregados:
         return None
         
     doc.build(elements)
     buffer.seek(0)
     return buffer
-
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
     page_title="Tablero Planificación Operacional",
@@ -1091,6 +1121,7 @@ with row2_col2:
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
     st.markdown('</div>', unsafe_allow_html=True)
+
 
 
 
