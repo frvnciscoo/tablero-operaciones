@@ -527,19 +527,19 @@ st.markdown("""
         color: #00b4d8 !important;
         box-shadow: 0 0 10px rgba(0, 180, 216, 0.5);
     }
-
-    /* DataFrame en modo FULLSCREEN */
-    div[data-testid="stDataFrame"]:has(button[title="Exit fullscreen"]) {
-        height: 90vh !important;
-        max-height: 90vh !important;
+    /* --- SOLUCIÓN DEFINITIVA PARA MAXIMIZAR TABLA --- */
+    
+    /* Cuando la tabla está dentro del marco de Pantalla Completa (Maximizada) */
+    section[data-testid="stFullScreenFrame"] [data-testid="stDataFrame"] > div {
+        height: 85vh !important;; /* Ocupar casi toda la altura visual */
+        max-height: none !important;; /* Quitar límites */
+    }
+    
+    /* Opcional: Asegurar que el contenedor padre también crezca */
+    section[data-testid="stFullScreenFrame"] [data-testid="stDataFrame"] {
+        height: 100% !important;;
     }
 
-    /* Forzamos la altura SOLO cuando la tabla es 'hija' de tu contenedor personalizado */
-    .custom-container [data-testid="stDataFrame"] > div {
-        height: 250px !important;; 
-        max-height: 250px !important;;
-        overflow: auto !important;;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -609,7 +609,7 @@ def load_data():
             return sheet1, equipos, jefe_op
 
     except Exception as e:
-            st.error(f"Error al cargar datos: {e}")
+            error(f"Error al cargar datos: {e}")
             return pd.DataFrame(), pd.DataFrame()
 
 df_sheet1, df_equipos, df_jefe_op  = load_data()
@@ -1084,7 +1084,7 @@ with row1_col2:
         
         st.dataframe(
             aplicar_estilo(df_faenas_clean[cols_validas]),
-
+            height = 250
             use_container_width=True, 
             hide_index=True
         )
@@ -1100,7 +1100,7 @@ with row1_col2:
         
         st.dataframe(
             aplicar_estilo(df_show[cols_validas]), 
-
+            height = 250
             use_container_width=True, 
             hide_index=True,
             column_config={
@@ -1134,6 +1134,7 @@ with row2_col2:
     st.plotly_chart(fig_map, use_container_width=True, config={'displayModeBar': False})
 
     st.markdown('</div>', unsafe_allow_html=True)
+
 
 
 
