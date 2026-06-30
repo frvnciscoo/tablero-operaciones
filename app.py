@@ -555,64 +555,55 @@ def load_data():
             # 1. Limpieza básica de nombres de columnas
             sheet1.columns = sheet1.columns.str.strip()
             equipos.columns = equipos.columns.str.strip()
+            
+            # Lectura Jefes de Turno
             try:
                 jefe_op = pd.read_excel(url, sheet_name='JefeOp')
                 jefe_op.columns = jefe_op.columns.str.strip()
-                # Asegurar formato fecha para filtrar
                 if 'Fecha' in jefe_op.columns:
-                    jefe_op['Fecha'] = pd.to_datetime(jefe_op['Fecha'], dayfirst=True,errors='coerce').dt.date
+                    jefe_op['Fecha'] = pd.to_datetime(jefe_op['Fecha'], dayfirst=True, errors='coerce').dt.date
             except Exception as e:
-                # Si falla leer esa hoja, creamos un df vacío para que no rompa el resto
                 jefe_op = pd.DataFrame(columns=['Fecha', 'Dia', 'Noche'])
-            # ---------------------------------------------------------
-            # LÓGICA DE EXCLUSIÓN GRUPAL (SI HAY UN "NO", SE VA TODO EL TÍTULO)
-            # ---------------------------------------------------------
 
-            # Función auxiliar para filtrar grupos "contaminados"
+            # --- NUEVO: Lectura de Coordinadores ---
+            try:
+                df_coord = pd.read_excel(url, sheet_name='Coordinador')
+                df_coord.columns = df_coord.columns.str.strip()
+                if 'Inicio' in df_coord.columns and 'Termino' in df_coord.columns:
+                    df_coord['Inicio'] = pd.to_datetime(df_coord['Inicio'], dayfirst=True, errors='coerce').dt.date
+                    df_coord['Termino'] = pd.to_datetime(df_coord['Termino'], dayfirst=True, errors='coerce').dt.date
+            except Exception as e:
+                df_coord = pd.DataFrame(columns=['Semana', 'Inicio', 'Termino', 'Coordinador', 'Area'])
+            # ----------------------------------------
+
+            # Lógica de exclusión grupal
             def filtrar_por_grupo(df, col_id, col_activo):
-                # Normalizamos la columna Activo para evitar errores de espacios
-                # Creamos una serie temporal limpia
                 if col_activo in df.columns and col_id in df.columns:
                     activo_norm = df[col_activo].astype(str).str.strip()
-                    
-                    # A. Identificamos los Títulos que tienen al menos un registro que NO sea "Si"
-                    # (O específicamente que sea "No", dependiendo de tu regla estricta. 
-                    # Aquí asumimos que si dice "No", contamina el grupo).
                     titulos_sucios = df[activo_norm == 'No'][col_id].unique()
-                    
-                    # B. Filtramos el DataFrame original:
-                    # Mantenemos solo las filas cuyo Título NO esté en la lista de sucios
                     df_limpio = df[~df[col_id].isin(titulos_sucios)]
-                    
-                    # C. (Opcional) Limpieza final: 
-                    # Si después de eliminar los grupos con "No", quedan filas vacías o raras
-                    # y quieres conservar SOLO las que dicen "Si" explícitamente:
                     df_limpio = df_limpio[df_limpio[col_activo].astype(str).str.strip() == 'Si']
-                    
                     return df_limpio
                 return df
 
-            # Aplicamos la lógica a Sheet1 (Usando columna 'Título')
             if 'Título' in sheet1.columns and 'Activo' in sheet1.columns:
                 sheet1 = filtrar_por_grupo(sheet1, 'Título', 'Activo')
 
-            # Aplicamos la lógica a Equipos (Usando columna 'Titulo' sin tilde, según tu esquema)
             if 'Titulo' in equipos.columns and 'Activo' in equipos.columns:
                 equipos = filtrar_por_grupo(equipos, 'Titulo', 'Activo')
                 
-            # ---------------------------------------------------------
-
             # Asegurar formato fecha
             sheet1['FechaHora'] = pd.to_datetime(sheet1['FechaHora'], errors='coerce').dt.date
             equipos['FechaHora'] = pd.to_datetime(equipos['FechaHora'], errors='coerce').dt.date
             
-            return sheet1, equipos, jefe_op
+            # Retornar los 4 dataframes
+            return sheet1, equipos, jefe_op, df_coord
 
     except Exception as e:
-            error(f"Error al cargar datos: {e}")
-            return pd.DataFrame(), pd.DataFrame()
-
-df_sheet1, df_equipos, df_jefe_op  = load_data()
+            st.error(f"Error al cargar datos: {e}")
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+        
+df_sheet1, df_equipos, df_jefe_op, df_coordinador = load_data()
 # --- HEADER ---
 # Usamos 3 columnas: [Botón Refresh] [Título Centro] [Logo Der]
 # Ajustamos anchos: 1 (Botón), 8 (Título), 1 (Logo) para mantener balance
@@ -1019,26 +1010,36 @@ with row1_col2:
             horizontal=True, label_visibility="collapsed", key="selector_modo"
         )
 
-    # 2. INFO JEFES (Centro)
+# 2. INFO JEFES Y COORDINADOR (Centro)
     with col_info:
-        # Lógica para obtener Dia y Noche según la fecha seleccionada
+        # Lógica Jefes de Turno
         jefe_dia = "--"
         jefe_noche = "--"
         
         if not df_jefe_op.empty and 'Fecha' in df_jefe_op.columns:
-            # Filtramos por la fecha seleccionada en el filtro principal (fecha_sel)
             df_jefe_filtrado = df_jefe_op[df_jefe_op['Fecha'] == fecha_sel]
-            
             if not df_jefe_filtrado.empty:
-                # Tomamos el primer registro encontrado
                 fila_jefe = df_jefe_filtrado.iloc[0]
                 jefe_dia = str(fila_jefe.get('Dia', '--'))
                 jefe_noche = str(fila_jefe.get('Noche', '--'))
 
-        # Mostramos el texto estilizado en el centro
+        # --- NUEVO: Lógica Coordinador ---
+        coordinador_actual = "--"
+        if not df_coordinador.empty and 'Inicio' in df_coordinador.columns and 'Termino' in df_coordinador.columns:
+            # Buscar el intervalo donde calza la fecha seleccionada
+            mask_coord = (df_coordinador['Inicio'] <= fecha_sel) & (df_coordinador['Termino'] >= fecha_sel)
+            df_coord_filtrado = df_coordinador[mask_coord]
+            
+            if not df_coord_filtrado.empty:
+                # Si encuentra coincidencia, extrae el nombre
+                coordinador_actual = str(df_coord_filtrado.iloc[0].get('Coordinador', '--'))
+        # -----------------------------------
+
+        # Mostramos el texto estilizado en el centro (agregamos una nueva línea para el Coordinador)
         st.markdown(f"""
             <div style="text-align: center; font-weight: bold; color: white; font-size: 0.9rem; border: 1px solid #415a77; border-radius: 5px; padding: 5px; background-color: #0d1b2a; margin-top:-15px;">
-                <span style="color: #00b4d8;">D:</span> {jefe_dia} &nbsp;|&nbsp; <span style="color: #00b4d8;">N:</span> {jefe_noche}
+                <span style="color: #00b4d8;">D:</span> {jefe_dia} &nbsp;|&nbsp; <span style="color: #00b4d8;">N:</span> {jefe_noche} <br>
+                <span style="color: #00b4d8;">Coord:</span> {coordinador_actual}
             </div>
         """, unsafe_allow_html=True)
 
