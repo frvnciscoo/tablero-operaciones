@@ -566,16 +566,31 @@ def load_data():
                 jefe_op = pd.DataFrame(columns=['Fecha', 'Dia', 'Noche'])
 
             # --- NUEVO: Lectura de Coordinadores ---
-# --- LECTURA DE COORDINADORES CORREGIDA ---
+# --- LECTURA DE COORDINADORES ROBUSTA ---
             try:
                 df_coord = pd.read_excel(url, sheet_name='Coordinador')
                 df_coord.columns = df_coord.columns.str.strip()
+                
                 if 'Inicio' in df_coord.columns and 'Termino' in df_coord.columns:
-                    # Forzamos conversión mixta para lidiar con formatos cruzados (DD/MM y MM/DD)
-                    df_coord['Inicio'] = pd.to_datetime(df_coord['Inicio'], format='mixed', errors='coerce').dt.date
-                    df_coord['Termino'] = pd.to_datetime(df_coord['Termino'], format='mixed', errors='coerce').dt.date
+                    def limpiar_fechas(serie):
+                        # Si son números (serial de Excel), los convierte desde la fecha base de Excel (1899-12-30)
+                        es_numero = pd.to_numeric(serie, errors='coerce').notna()
+                        resultado = pd.Series(index=serie.index, dtype='object')
+                        
+                        if es_numero.any():
+                            resultado[es_numero] = pd.to_datetime(pd.to_numeric(serie[es_numero]), unit='D', origin='1899-12-30', errors='coerce').dt.date
+                        
+                        # Si son textos, intenta parsearlos manejando día primero
+                        if (~es_numero).any():
+                            resultado[~es_numero] = pd.to_datetime(serie[~es_numero], dayfirst=True, errors='coerce').dt.date
+                            
+                        return pd.to_datetime(resultado, errors='coerce').dt.date
+
+                    df_coord['Inicio'] = limpiar_fechas(df_coord['Inicio'])
+                    df_coord['Termino'] = limpiar_fechas(df_coord['Termino'])
             except Exception as e:
                 df_coord = pd.DataFrame(columns=['Semana', 'Inicio', 'Termino', 'Coordinador', 'Area'])
+            # ----------------------------------------
             # ----------------------------------------
             # ----------------------------------------
 
