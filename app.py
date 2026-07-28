@@ -1039,9 +1039,9 @@ with row1_col2:
                 jefe_noche = str(fila_jefe.get('Noche', '--'))
 
         # --- NUEVO: Lógica Coordinador ---
-        st.write(df_coord.head(10))
-        st.write(df_coord.dtypes)
         coordinador_actual = "--"
+        st.write(df_coord[["Inicio","Termino"]].head(10))
+        st.write(df_coord[["Inicio","Termino"]].applymap(type).head(10))
         if not df_coordinador.empty and 'Inicio' in df_coordinador.columns and 'Termino' in df_coordinador.columns:
             # Buscar el intervalo donde calza la fecha seleccionada
             mask_coord = (df_coordinador['Inicio'] <= fecha_sel) & (df_coordinador['Termino'] >= fecha_sel)
