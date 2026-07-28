@@ -1023,15 +1023,22 @@ with row1_col2:
                 jefe_dia = str(fila_jefe.get('Dia', '--'))
                 jefe_noche = str(fila_jefe.get('Noche', '--'))
 
-        # --- NUEVO: Lógica Coordinador ---
+         # --- LÓGICA DE COORDINADOR CORREGIDA ---
         coordinador_actual = "--"
         if not df_coordinador.empty and 'Inicio' in df_coordinador.columns and 'Termino' in df_coordinador.columns:
-            # Buscar el intervalo donde calza la fecha seleccionada
-            mask_coord = (df_coordinador['Inicio'] <= fecha_sel) & (df_coordinador['Termino'] >= fecha_sel)
-            df_coord_filtrado = df_coordinador[mask_coord]
+            # Aseguramos que la fecha seleccionada y las columnas sean comparables (tipo date)
+            f_sel = pd.to_datetime(fecha_sel).date()
+            
+            # Copiamos para evitar SettingWithCopyWarning
+            df_c = df_coordinador.copy()
+            df_c['Inicio'] = pd.to_datetime(df_c['Inicio'], errors='coerce').dt.date
+            df_c['Termino'] = pd.to_datetime(df_c['Termino'], errors='coerce').dt.date
+            
+            # Filtramos el rango
+            mask_coord = (df_c['Inicio'] <= f_sel) & (df_c['Termino'] >= f_sel)
+            df_coord_filtrado = df_c[mask_coord]
             
             if not df_coord_filtrado.empty:
-                # Si encuentra coincidencia, extrae el nombre
                 coordinador_actual = str(df_coord_filtrado.iloc[0].get('Coordinador', '--'))
         # -----------------------------------
 
