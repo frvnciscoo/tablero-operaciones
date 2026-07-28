@@ -1033,6 +1033,11 @@ with row1_col2:
             df_c = df_coordinador.copy()
             df_c['Inicio'] = pd.to_datetime(df_c['Inicio'], errors='coerce').dt.date
             df_c['Termino'] = pd.to_datetime(df_c['Termino'], errors='coerce').dt.date
+
+            # --- LÍNEA DE DEPURACIÓN (Borrar después de probar) ---
+            st.write(f"Fecha seleccionada: {f_sel}")
+            st.write(df_c[['Inicio', 'Termino', 'Coordinador']])
+            # --------------------------------------------------
             
             # Filtramos el rango
             mask_coord = (df_c['Inicio'] <= f_sel) & (df_c['Termino'] >= f_sel)
