@@ -566,14 +566,17 @@ def load_data():
                 jefe_op = pd.DataFrame(columns=['Fecha', 'Dia', 'Noche'])
 
             # --- NUEVO: Lectura de Coordinadores ---
+# --- LECTURA DE COORDINADORES CORREGIDA ---
             try:
                 df_coord = pd.read_excel(url, sheet_name='Coordinador')
                 df_coord.columns = df_coord.columns.str.strip()
                 if 'Inicio' in df_coord.columns and 'Termino' in df_coord.columns:
-                    df_coord['Inicio'] = pd.to_datetime(df_coord['Inicio'], dayfirst=True, errors='coerce').dt.date
-                    df_coord['Termino'] = pd.to_datetime(df_coord['Termino'], dayfirst=True, errors='coerce').dt.date
+                    # Forzamos conversión mixta para lidiar con formatos cruzados (DD/MM y MM/DD)
+                    df_coord['Inicio'] = pd.to_datetime(df_coord['Inicio'], format='mixed', errors='coerce').dt.date
+                    df_coord['Termino'] = pd.to_datetime(df_coord['Termino'], format='mixed', errors='coerce').dt.date
             except Exception as e:
                 df_coord = pd.DataFrame(columns=['Semana', 'Inicio', 'Termino', 'Coordinador', 'Area'])
+            # ----------------------------------------
             # ----------------------------------------
 
             # Lógica de exclusión grupal
