@@ -567,26 +567,17 @@ def load_data():
 
             # --- NUEVO: Lectura de Coordinadores ---
             try:
-                df_coord = pd.read_excel(
-                    url,
-                    sheet_name="Coordinador",
-                    dtype=str
-                )
-                df_coord.columns = df_coord.columns.str.strip()
-                df_coord["Inicio"] = pd.to_datetime(
-                    df_coord["Inicio"].str.strip(),
-                    format="%d/%m/%Y",
-                    errors="coerce"
-                ).dt.date
-                
-                df_coord["Termino"] = pd.to_datetime(
-                    df_coord["Termino"].str.strip(),
-                    format="%d/%m/%Y",
-                    errors="coerce"
-                ).dt.date
-                if 'Inicio' in df_coord.columns and 'Termino' in df_coord.columns:
-                    df_coord['Inicio'] = pd.to_datetime(df_coord['Inicio'], dayfirst=True, errors='coerce').dt.date
-                    df_coord['Termino'] = pd.to_datetime(df_coord['Termino'], dayfirst=True, errors='coerce').dt.date
+            df_coord = pd.read_excel(url, sheet_name='Coordinador')
+            df_coord.columns = df_coord.columns.str.strip()
+            
+            # --------- TEMPORAL PARA DIAGNÓSTICO ----------
+            st.write(df_coord[["Inicio","Termino"]].head(10))
+            st.write(df_coord[["Inicio","Termino"]].applymap(type).head(10))
+            # ----------------------------------------------
+            
+            if 'Inicio' in df_coord.columns and 'Termino' in df_coord.columns:
+                df_coord['Inicio'] = pd.to_datetime(df_coord['Inicio'], dayfirst=True, errors='coerce').dt.date
+                df_coord['Termino'] = pd.to_datetime(df_coord['Termino'], dayfirst=True, errors='coerce').dt.date
             except Exception as e:
                 df_coord = pd.DataFrame(columns=['Semana', 'Inicio', 'Termino', 'Coordinador', 'Area'])
             # ----------------------------------------
@@ -1040,8 +1031,6 @@ with row1_col2:
 
         # --- NUEVO: Lógica Coordinador ---
         coordinador_actual = "--"
-        st.write(df_coord[["Inicio","Termino"]].head(10))
-        st.write(df_coord[["Inicio","Termino"]].applymap(type).head(10))
         if not df_coordinador.empty and 'Inicio' in df_coordinador.columns and 'Termino' in df_coordinador.columns:
             # Buscar el intervalo donde calza la fecha seleccionada
             mask_coord = (df_coordinador['Inicio'] <= fecha_sel) & (df_coordinador['Termino'] >= fecha_sel)
