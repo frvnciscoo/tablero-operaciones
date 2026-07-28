@@ -1039,6 +1039,8 @@ with row1_col2:
                 jefe_noche = str(fila_jefe.get('Noche', '--'))
 
         # --- NUEVO: Lógica Coordinador ---
+        st.write(df_coord.head(10))
+        st.write(df_coord.dtypes)
         coordinador_actual = "--"
         if not df_coordinador.empty and 'Inicio' in df_coordinador.columns and 'Termino' in df_coordinador.columns:
             # Buscar el intervalo donde calza la fecha seleccionada
