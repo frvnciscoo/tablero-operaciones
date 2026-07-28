@@ -567,17 +567,13 @@ def load_data():
 
             # --- NUEVO: Lectura de Coordinadores ---
             try:
-            df_coord = pd.read_excel(url, sheet_name='Coordinador')
-            df_coord.columns = df_coord.columns.str.strip()
-            
-            # --------- TEMPORAL PARA DIAGNÓSTICO ----------
-            st.write(df_coord[["Inicio","Termino"]].head(10))
-            st.write(df_coord[["Inicio","Termino"]].applymap(type).head(10))
-            # ----------------------------------------------
-            
-            if 'Inicio' in df_coord.columns and 'Termino' in df_coord.columns:
-                df_coord['Inicio'] = pd.to_datetime(df_coord['Inicio'], dayfirst=True, errors='coerce').dt.date
-                df_coord['Termino'] = pd.to_datetime(df_coord['Termino'], dayfirst=True, errors='coerce').dt.date
+                df_coord = pd.read_excel(url, sheet_name='Coordinador')
+                df_coord.columns = df_coord.columns.str.strip()
+                st.write(df_coord[["Inicio","Termino"]].head(10))
+                st.write(df_coord[["Inicio","Termino"]].applymap(type).head(10))
+                if 'Inicio' in df_coord.columns and 'Termino' in df_coord.columns:
+                    df_coord['Inicio'] = pd.to_datetime(df_coord['Inicio'], dayfirst=True, errors='coerce').dt.date
+                    df_coord['Termino'] = pd.to_datetime(df_coord['Termino'], dayfirst=True, errors='coerce').dt.date
             except Exception as e:
                 df_coord = pd.DataFrame(columns=['Semana', 'Inicio', 'Termino', 'Coordinador', 'Area'])
             # ----------------------------------------
