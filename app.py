@@ -566,22 +566,27 @@ def load_data():
                 jefe_op = pd.DataFrame(columns=['Fecha', 'Dia', 'Noche'])
 
             # --- NUEVO: Lectura de Coordinadores ---
-            # --- LECTURA DE COORDINADORES CORREGIDA ----
             try:
-                # Leemos la pestaña asegurando que lea las celdas correctas
-                df_coord = pd.read_excel(url, sheet_name='Coordinador')
+                df_coord = pd.read_excel(
+                    url,
+                    sheet_name="Coordinador",
+                    dtype=str
+                )
                 df_coord.columns = df_coord.columns.str.strip()
+                df_coord["Inicio"] = pd.to_datetime(
+                    df_coord["Inicio"].str.strip(),
+                    format="%d/%m/%Y",
+                    errors="coerce"
+                ).dt.date
                 
-                # Si las columnas de fecha tienen nombres distintos o se mezclan, 
-                # aseguramos limpiar los nombres de columnas de la hoja de Google Sheets
-                col_inicio = [c for c in df_coord.columns if 'inicio' in c.lower()][0]
-                col_termino = [c for c in df_coord.columns if 'termino' in c.lower() or 'término' in c.lower()][0]
-                col_coord = [c for c in df_coord.columns if 'coordinador' in c.lower()][0]
-                
-                if col_inicio and col_termino:
-                    df_coord['Inicio'] = pd.to_datetime(df_coord[col_inicio], dayfirst=True, errors='coerce').dt.date
-                    df_coord['Termino'] = pd.to_datetime(df_coord[col_termino], dayfirst=True, errors='coerce').dt.date
-                    df_coord['Coordinador'] = df_coord[col_coord]
+                df_coord["Termino"] = pd.to_datetime(
+                    df_coord["Termino"].str.strip(),
+                    format="%d/%m/%Y",
+                    errors="coerce"
+                ).dt.date
+                if 'Inicio' in df_coord.columns and 'Termino' in df_coord.columns:
+                    df_coord['Inicio'] = pd.to_datetime(df_coord['Inicio'], dayfirst=True, errors='coerce').dt.date
+                    df_coord['Termino'] = pd.to_datetime(df_coord['Termino'], dayfirst=True, errors='coerce').dt.date
             except Exception as e:
                 df_coord = pd.DataFrame(columns=['Semana', 'Inicio', 'Termino', 'Coordinador', 'Area'])
             # ----------------------------------------
@@ -1033,27 +1038,15 @@ with row1_col2:
                 jefe_dia = str(fila_jefe.get('Dia', '--'))
                 jefe_noche = str(fila_jefe.get('Noche', '--'))
 
-         # --- LÓGICA DE COORDINADOR CORREGIDA ---
+        # --- NUEVO: Lógica Coordinador ---
         coordinador_actual = "--"
         if not df_coordinador.empty and 'Inicio' in df_coordinador.columns and 'Termino' in df_coordinador.columns:
-            # Aseguramos que la fecha seleccionada y las columnas sean comparables (tipo date)
-            f_sel = pd.to_datetime(fecha_sel).date()
-            
-            # Copiamos para evitar SettingWithCopyWarning
-            df_c = df_coordinador.copy()
-            df_c['Inicio'] = pd.to_datetime(df_c['Inicio'], errors='coerce').dt.date
-            df_c['Termino'] = pd.to_datetime(df_c['Termino'], errors='coerce').dt.date
-
-            # --- LÍNEA DE DEPURACIÓN (Borrar después de probar) ---
-            st.write(f"Fecha seleccionada: {f_sel}")
-            st.write(df_c[['Inicio', 'Termino', 'Coordinador']])
-            # --------------------------------------------------
-            
-            # Filtramos el rango
-            mask_coord = (df_c['Inicio'] <= f_sel) & (df_c['Termino'] >= f_sel)
-            df_coord_filtrado = df_c[mask_coord]
+            # Buscar el intervalo donde calza la fecha seleccionada
+            mask_coord = (df_coordinador['Inicio'] <= fecha_sel) & (df_coordinador['Termino'] >= fecha_sel)
+            df_coord_filtrado = df_coordinador[mask_coord]
             
             if not df_coord_filtrado.empty:
+                # Si encuentra coincidencia, extrae el nombre
                 coordinador_actual = str(df_coord_filtrado.iloc[0].get('Coordinador', '--'))
         # -----------------------------------
 
